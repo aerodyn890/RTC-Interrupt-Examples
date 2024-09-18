@@ -1,34 +1,46 @@
 #include <zephyr/kernel.h>
 
 // RTC0 Interrupt Handler
-void RTC1_IRQHandler();
+void RTC2_IRQHandler();
+
+
+// Global Variables
+uint32_t counter = 0;
 int main(void)
 {
         // Initialize RTC
-        NRF_RTC1->TASKS_CLEAR = 0x01;
-        NRF_RTC1->INTENSET = RTC_INTENSET_COMPARE0_Enabled << RTC_INTENSET_COMPARE0_Pos;
-        NRF_RTC1->EVTENSET = RTC_EVTENSET_COMPARE0_Enabled << RTC_EVTENSET_COMPARE0_Pos;
-        NRF_RTC1->PRESCALER = 32;       // 32768/(32+1) = 992.96counts = 1sec
-        NRF_RTC1->TASKS_START = 1;
+        NRF_RTC2->TASKS_CLEAR = 0x01;
+        NRF_RTC2->INTENSET = RTC_INTENSET_COMPARE0_Enabled << RTC_INTENSET_COMPARE0_Pos;
+        NRF_RTC2->EVTENSET = RTC_EVTENSET_COMPARE0_Enabled << RTC_EVTENSET_COMPARE0_Pos;
+        NRF_RTC2->PRESCALER = 32;       // 32768/(32+1) = 992.96counts = 1sec
+        NRF_RTC2->TASKS_START = 1;
+
+        // Set RTC Compare Register
+        counter = NRF_RTC2->COUNTER + 993;
+        NRF_RTC2->CC[0] = counter;   // Call RTC1 Compare0 Handler after 1sec
 
         // Activate IRQ
-        IRQ_DIRECT_CONNECT(RTC1_IRQn, 0, RTC1_IRQHandler, 0);
-        irq_enable(RTC1_IRQn);
+        IRQ_DIRECT_CONNECT(RTC2_IRQn, 0, RTC2_IRQHandler, 0);
+        irq_enable(RTC2_IRQn);
         
         while(true){
                 // Main Loop
-                __WFI();
+                //__WFI();
+                k_usleep(1);
         }
         return 0;
 }
 
-void RTC1_IRQHandler(){
+void RTC2_IRQHandler(){
         // Function for RTC0 Interrupt/Events
-        if(NRF_RTC1->EVENTS_COMPARE[0] == 1){
-                NRF_RTC1->EVENTS_COMPARE[0] = 0;
+        if(NRF_RTC2->EVENTS_COMPARE[0] == 1){
+                NRF_RTC2->EVENTS_COMPARE[0] = 0;
                 
                 // Print message
-                uint32_t counter = NRF_RTC1->COUNTER;
                 printk("Elapsed Time : %ds(%08d)\n", counter / 993, counter);        // 992.9 == 1sec
+
+                // Set next compare register for repeat
+                counter = NRF_RTC2->COUNTER + 993;
+                NRF_RTC2->CC[0] = counter;
         }
 }
